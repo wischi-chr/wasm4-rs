@@ -83,7 +83,6 @@ impl Blit for Sprite {
         let flags = self.bpp() as u32 | transform.bits();
         let shape = self.shape();
         unsafe {
-            wasm4_sys::DRAW_COLORS.write(self.indices.into());
             wasm4_sys::blit(
                 self.bytes().as_ptr(),
                 start[0],
@@ -111,7 +110,6 @@ impl Blit for SpriteView<'_> {
         let sprite = &self.sprite();
 
         unsafe {
-            wasm4_sys::DRAW_COLORS.write(self.sprite().indices.into());
             wasm4_sys::blitSub(
                 sprite.bytes().as_ptr(),
                 start[0],

@@ -70,9 +70,8 @@ impl ToTokens for Output {
                 BitsPerPixel::One => quote! { #package_name::draw::BitsPerPixel::One },
                 BitsPerPixel::Two => quote! { #package_name::draw::BitsPerPixel::Two },
             };
-            let indices = sprite.indices.into_u16();
+
             let byte_len = bytes.len();
-            let indices_ty = quote! { #package_name::draw::DrawIndices };
             let ty = quote_spanned! { ty.spans[0] => #package_name::draw::Sprite<[u8; #byte_len]> };
             let path = format!("{}", pkg_root.join(expr.path.value()).display());
             let path = quote_spanned!(expr.path.span() => #path);
@@ -81,7 +80,6 @@ impl ToTokens for Output {
                     [ #( #bytes ),* ],
                     [ #( #shape ),* ],
                     #bpp,
-                    unsafe { <#indices_ty>::from_u16_unchecked(#indices) },
                 ) {
                     Some(s) => s,
                     None => panic!(),

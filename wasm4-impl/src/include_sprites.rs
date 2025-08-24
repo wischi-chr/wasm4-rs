@@ -7,7 +7,7 @@ use heapless::Vec as SVec;
 use image::io::Reader as ImageReader;
 use once_cell::unsync::OnceCell;
 use std::{collections::HashMap, mem, path::PathBuf};
-use wasm4_common::draw::{BitsPerPixel, DrawIndex, DrawIndices};
+use wasm4_common::draw::BitsPerPixel;
 
 pub use to_tokens::Output;
 
@@ -146,20 +146,10 @@ pub fn implementation(input: parse::Input) -> syn::Result<Output> {
                     }
                 }
 
-                let indices = DrawIndices::from_array([0, 1, 2, 3].map(|i| {
-                    DrawIndex::new(
-                        indices
-                            .get(i)
-                            .copied()
-                            .flatten()
-                            .map_or(0, |idx| u16::try_from(idx).unwrap() + 1),
-                    )
-                    .unwrap()
-                }));
                 bits.set_uninitialized(false);
 
                 Ok((
-                    Sprite::from_bytes(bits.into_vec(), [img.width(), img.height()], bpp, indices)
+                    Sprite::from_bytes(bits.into_vec(), [img.width(), img.height()], bpp)
                         .expect("something's wrong with the image dimentions"),
                     item,
                 ))

@@ -2,7 +2,6 @@
 pub struct Sprite<Bytes: ?Sized = [u8]> {
     shape: [u32; 2],
     bpp: BitsPerPixel,
-    pub indices: DrawIndices,
     bytes: Bytes,
 }
 
@@ -16,7 +15,6 @@ impl<const N: usize> Sprite<[u8; N]> {
         bytes: [u8; N],
         shape: [u32; 2],
         bpp: BitsPerPixel,
-        draw_colors: DrawIndices,
     ) -> Option<Self> {
         let resolution = shape[0].checked_mul(shape[1]);
         let capacity = N.checked_mul(1 << (3 - bpp as u32));
@@ -24,7 +22,7 @@ impl<const N: usize> Sprite<[u8; N]> {
         match (resolution, capacity) {
             // SAFETY: calling unsafe function after the check
             (Some(resolution), Some(capacity)) if resolution as usize <= capacity => unsafe {
-                Some(Self::from_bytes_unchecked(bytes, shape, bpp, draw_colors))
+                Some(Self::from_bytes_unchecked(bytes, shape, bpp))
             },
             _ => None,
         }
@@ -45,31 +43,20 @@ impl<Bytes> Sprite<Bytes> {
         bytes: Bytes,
         shape: [u32; 2],
         bpp: BitsPerPixel,
-        draw_colors: DrawIndices,
     ) -> Self {
-        Sprite {
-            shape,
-            bpp,
-            indices: draw_colors,
-            bytes,
-        }
+        Sprite { shape, bpp, bytes }
     }
 }
 
 impl<Bytes: AsRef<[u8]>> Sprite<Bytes> {
-    pub fn from_bytes(
-        bytes: Bytes,
-        shape: [u32; 2],
-        bpp: BitsPerPixel,
-        draw_colors: DrawIndices,
-    ) -> Option<Self> {
+    pub fn from_bytes(bytes: Bytes, shape: [u32; 2], bpp: BitsPerPixel) -> Option<Self> {
         let resolution = shape[0].checked_mul(shape[1]);
         let capacity = bytes.as_ref().len().checked_mul(1 << (3 - bpp as u32));
 
         match (resolution, capacity) {
             // SAFETY: calling unsafe function after the check
             (Some(resolution), Some(capacity)) if resolution as usize <= capacity => unsafe {
-                Some(Self::from_bytes_unchecked(bytes, shape, bpp, draw_colors))
+                Some(Self::from_bytes_unchecked(bytes, shape, bpp))
             },
             _ => None,
         }
