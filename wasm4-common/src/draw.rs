@@ -153,11 +153,17 @@ impl<'a> SpriteView<'a> {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub struct DrawIndices(u16);
 
 impl DrawIndices {
     pub const TRANSPARENT: Self = DrawIndices(0);
+
+    // Source for value:
+    // https://github.com/aduros/wasm4/blob/ad76be395f6dc8d76b96505d60629dc481615ebf/runtimes/web/src/runtime.ts#L110
+
+    /// Default value for [`DrawIndices`] which is active when wasm4 starts
+    pub const DEFAULT: Self = DrawIndices(0x1203);
 
     pub const fn from_array(array: [DrawIndex; 4]) -> Self {
         DrawIndices(
@@ -191,6 +197,12 @@ impl DrawIndices {
 
     pub const fn into_u16(self) -> u16 {
         self.0
+    }
+}
+
+impl Default for DrawIndices {
+    fn default() -> Self {
+        Self::DEFAULT
     }
 }
 
