@@ -59,9 +59,19 @@ impl Framebuffer {
         sprite.blit(start, transform, self)
     }
 
-    pub fn replace_palette(&self, palette: [Color; 4]) -> [Color; 4] {
+    pub fn set_palette(&self, palette: [Color; 4]) -> [Color; 4] {
         // SAFETY: Color is `repr(transparent)` over u32
         unsafe { (wasm4_sys::PALETTE as *mut [Color; 4]).replace(palette) }
+    }
+
+    pub fn set_draw_indices(&self, indices: DrawIndices) {
+        unsafe {
+            wasm4_sys::DRAW_COLORS.write(indices.into());
+        }
+    }
+
+    pub fn reset_draw_indices(&self) {
+        self.set_draw_indices(DrawIndices::DEFAULT);
     }
 }
 
