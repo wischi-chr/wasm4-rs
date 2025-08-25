@@ -10,11 +10,23 @@ use core::{cell::Cell, marker::PhantomData};
 
 pub use wasm4_common::draw::*;
 
-pub struct Framebuffer(PhantomData<*mut ()>);
+pub struct Framebuffer {
+    phantom: PhantomData<*mut ()>,
+    foreground: DrawIndex,
+    background: DrawIndex,
+    fill: DrawIndex,
+    stroke: DrawIndex,
+}
 
 impl Framebuffer {
     pub(crate) unsafe fn new_() -> Self {
-        Framebuffer(PhantomData)
+        Framebuffer {
+            phantom: PhantomData,
+            foreground: DrawIndex::Fourth,
+            background: DrawIndex::First,
+            fill: DrawIndex::Second,
+            stroke: DrawIndex::Fourth,
+        }
     }
 
     pub const WIDTH: usize = 160;
@@ -32,27 +44,46 @@ impl Framebuffer {
     }
 
     pub fn line(&self, start: [i32; 2], end: [i32; 2]) {
-        unsafe { wasm4_sys::line(start[0], start[1], end[0], end[1]) }
+        unsafe {
+            wasm4_sys::DRAW_COLORS.write(self.stroke as u16);
+            wasm4_sys::line(start[0], start[1], end[0], end[1]);
+        }
     }
 
     pub fn hline(&self, start: [i32; 2], len: u32) {
-        unsafe { wasm4_sys::hline(start[0], start[1], len) }
+        unsafe {
+            wasm4_sys::DRAW_COLORS.write(self.stroke as u16);
+            wasm4_sys::hline(start[0], start[1], len);
+        }
     }
 
     pub fn vline(&self, start: [i32; 2], len: u32) {
-        unsafe { wasm4_sys::vline(start[0], start[1], len) }
+        unsafe {
+            wasm4_sys::DRAW_COLORS.write(self.stroke as u16);
+            wasm4_sys::vline(start[0], start[1], len);
+        }
     }
 
     pub fn oval(&self, start: [i32; 2], shape: [u32; 2]) {
-        unsafe { wasm4_sys::oval(start[0], start[1], shape[0], shape[1]) }
+        unsafe {
+            wasm4_sys::DRAW_COLORS.write(((self.stroke as u16) << 4) | (self.fill as u16));
+            wasm4_sys::oval(start[0], start[1], shape[0], shape[1])
+        }
     }
 
     pub fn rect(&self, start: [i32; 2], shape: [u32; 2]) {
-        unsafe { wasm4_sys::rect(start[0], start[1], shape[0], shape[1]) }
+        unsafe {
+            wasm4_sys::DRAW_COLORS.write(((self.stroke as u16) << 4) | (self.fill as u16));
+            wasm4_sys::rect(start[0], start[1], shape[0], shape[1])
+        }
     }
 
     pub fn text(&self, text: &str, start: [i32; 2]) {
-        unsafe { wasm4_sys::textUtf8(text.as_ptr(), text.len(), start[0], start[1]) }
+        unsafe {
+            wasm4_sys::DRAW_COLORS
+                .write(((self.background as u16) << 4) | (self.foreground as u16));
+            wasm4_sys::textUtf8(text.as_ptr(), text.len(), start[0], start[1]);
+        }
     }
 
     pub fn blit(&self, sprite: &impl Blit, start: [i32; 2], transform: BlitTransform) {
@@ -68,6 +99,22 @@ impl Framebuffer {
         unsafe {
             wasm4_sys::DRAW_COLORS.write(indices.into());
         }
+    }
+
+    pub fn set_foreground(&mut self, index: DrawIndex) {
+        self.foreground = index;
+    }
+
+    pub fn set_background(&mut self, index: DrawIndex) {
+        self.background = index;
+    }
+
+    pub fn set_fill(&mut self, index: DrawIndex) {
+        self.fill = index;
+    }
+
+    pub fn set_stroke(&mut self, index: DrawIndex) {
+        self.stroke = index;
     }
 
     pub fn reset_draw_indices(&self) {
