@@ -1,3 +1,5 @@
+use core::fmt::Debug;
+
 #[derive(Clone, Copy)]
 pub struct Sprite<Bytes: ?Sized = [u8]> {
     shape: [u32; 2],
@@ -159,11 +161,22 @@ pub struct DrawIndices(u16);
 impl DrawIndices {
     pub const TRANSPARENT: Self = DrawIndices(0);
 
-    // Source for value:
+    // Source for DEFAULT value:
     // https://github.com/aduros/wasm4/blob/ad76be395f6dc8d76b96505d60629dc481615ebf/runtimes/web/src/runtime.ts#L110
-
     /// Default value for [`DrawIndices`] which is active when wasm4 starts
     pub const DEFAULT: Self = DrawIndices(0x1203);
+
+    /// Maps the drawing indices 1:1 to the color palette.
+    ///
+    /// The first draw color to the first palette color,
+    /// the second to the second, and so on.
+    pub const FORWARD: Self = DrawIndices(0x4321);
+
+    /// Maps the drawing indices backwards to the color palette.
+    ///
+    /// The first draw color to the forth palette color,
+    /// the second to the third, and so on.
+    pub const INVERSE: Self = DrawIndices(0x1234);
 
     pub const fn from_array(array: [DrawIndex; 4]) -> Self {
         DrawIndices(
@@ -246,7 +259,7 @@ pub type Palette = [Color; 4];
 
 /// Has `0x__RRGGBB` layout
 #[repr(transparent)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub struct Color(pub u32);
 
 impl Color {
@@ -274,6 +287,12 @@ impl Color {
 
     pub const fn with_red(self, channel: u8) -> Self {
         Color((self.0 & !0xff0000) | (channel as u32) << 16)
+    }
+}
+
+impl Debug for Color {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "#{:X}{:X}{:X}", self.red(), self.green(), self.blue())
     }
 }
 

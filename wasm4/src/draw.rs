@@ -90,9 +90,31 @@ impl Framebuffer {
         sprite.blit(start, transform, self)
     }
 
-    pub fn set_palette(&self, palette: [Color; 4]) -> [Color; 4] {
+    pub fn flip_palette(&self) {
+        // SAFETY: only mut reference because WASM-4 is single-threaded
+        let colors = unsafe { &mut *wasm4_sys::PALETTE };
+
+        (colors[0], colors[3]) = (colors[3], colors[0]);
+        (colors[1], colors[2]) = (colors[2], colors[1]);
+    }
+
+    pub fn reset_palette(&self) {
+        // SAFETY: only mut reference because WASM-4 is single-threaded
+        let colors = unsafe { &mut *wasm4_sys::PALETTE };
+
+        colors[0] = 0xE0F8CF;
+        colors[1] = 0x86C06C;
+        colors[2] = 0x306850;
+        colors[3] = 0x071821;
+    }
+
+    pub fn palette(&self) -> Palette {
+        unsafe { (wasm4_sys::PALETTE as *mut Palette).read() }
+    }
+
+    pub fn set_palette(&self, palette: Palette) {
         // SAFETY: Color is `repr(transparent)` over u32
-        unsafe { (wasm4_sys::PALETTE as *mut [Color; 4]).replace(palette) }
+        unsafe { (wasm4_sys::PALETTE as *mut Palette).write(palette) }
     }
 
     pub fn set_draw_indices(&self, indices: DrawIndices) {
@@ -132,13 +154,19 @@ bitflags::bitflags! {
 }
 
 pub trait Blit {
-    fn blit(&self, start: [i32; 2], transform: BlitTransform, _framebuffer: &Framebuffer);
+    fn blit(&self, start: [i32; 2], transform: BlitTransform, framebuffer: &Framebuffer);
+
+    /// Same as [Blit::blit] but without zero [BlitTransform] (no flip/rotation).
+    fn blitz(&self, start: [i32; 2], framebuffer: &Framebuffer) {
+        self.blit(start, BlitTransform::empty(), framebuffer);
+    }
 }
 
 impl Blit for Sprite {
     fn blit(&self, start: [i32; 2], transform: BlitTransform, _framebuffer: &Framebuffer) {
         let flags = self.bpp() as u32 | transform.bits();
         let shape = self.shape();
+
         unsafe {
             wasm4_sys::blit(
                 self.bytes().as_ptr(),
@@ -154,8 +182,8 @@ impl Blit for Sprite {
 
 impl<const N: usize> Blit for Sprite<[u8; N]> {
     #[inline(always)]
-    fn blit(&self, start: [i32; 2], transform: BlitTransform, _framebuffer: &Framebuffer) {
-        Sprite::<[u8]>::blit(self, start, transform, _framebuffer)
+    fn blit(&self, start: [i32; 2], transform: BlitTransform, framebuffer: &Framebuffer) {
+        Sprite::<[u8]>::blit(self, start, transform, framebuffer)
     }
 }
 
@@ -182,6 +210,35 @@ impl Blit for SpriteView<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct DrawIndexed<'a, T: ?Sized> {
+    item: &'a T,
+    draw_indices: DrawIndices,
+}
+
+impl<'a, T: ?Sized> DrawIndexed<'a, T> {
+    pub const fn from(item: &'a T, draw_indices: DrawIndices) -> DrawIndexed<'a, T> {
+        Self { item, draw_indices }
+    }
+
+    pub const fn with_draw_indices(&self, draw_indices: DrawIndices) -> DrawIndexed<'a, T> {
+        Self {
+            item: self.item,
+            draw_indices,
+        }
+    }
+}
+
+impl<'a, T: Blit> Blit for DrawIndexed<'a, T>
+where
+    T: ?Sized,
+{
+    fn blit(&self, start: [i32; 2], transform: BlitTransform, framebuffer: &Framebuffer) {
+        framebuffer.set_draw_indices(self.draw_indices);
+        self.item.blit(start, transform, framebuffer);
+    }
+}
+
 #[macro_export]
 #[cfg(feature = "include-sprites")]
 macro_rules! include_sprites {
@@ -190,5 +247,59 @@ macro_rules! include_sprites {
             package: $crate,
             input: { $( $tt )* },
         }
+    };
+}
+
+/**
+Creates a sprite from an inline text representation.
+
+# Format
+You can use any characters (`char`s) to define different indices.
+Every character (except leading/trailing spaces) has to be
+repeated exactly twice. We do that to counter typical aspect ratios
+of mono-spaced characters in text editors.
+
+A single leading new-line is mandatory and so are the new-lines after
+each line (including the last one).
+
+Width, height, bits per pixel, and buffer size are auto-detected.
+Spaces are ignored so you can use indentation inside the raw string literal.
+
+Indices are set in order of appearance of the different characters and
+can not be changed. Use [DrawIndices] before drawing to map to different
+[Palette] colors.
+
+# Examples
+```
+const GRID: &Sprite = text_sprite!(
+    r#"
+    0011
+    2233
+    "#
+);
+
+const SMILEY: &Sprite = text_sprite!(
+    r#"
+    ....▒▒▒▒▒▒▒▒....
+    ..▒▒▒▒▒▒▒▒▒▒▒▒..
+    ▒▒▒▒██▒▒▒▒██▒▒▒▒
+    ▒▒▒▒▓▓▒▒▒▒▓▓▒▒▒▒
+    ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+    ▒▒▒▒██▒▒▒▒██▒▒▒▒
+    ..▒▒▒▒████▒▒▒▒..
+    ....▒▒▒▒▒▒▒▒....
+    "#
+);
+```
+
+*/
+#[macro_export]
+macro_rules! text_sprite {
+    ($data:literal) => {
+        const {
+            &$crate::__private::inline_sprite::sprite_builder::<
+                { $crate::__private::inline_sprite::sprite_calc($data).1 },
+            >($data)
+        };
     };
 }

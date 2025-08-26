@@ -8,7 +8,7 @@
 // TODO: #![deny(missing_docs)]
 
 #[doc(hidden)]
-#[path = "private.rs"]
+#[path = "private/mod.rs"]
 pub mod __private;
 pub mod draw;
 pub mod rt;
